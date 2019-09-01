@@ -3,7 +3,6 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Windows;
 
@@ -15,7 +14,7 @@ namespace PPTAutoMakeTest
     public partial class MainWindow : Window
     {
         //置き換えログ保管用
-        StringBuilder sb = new StringBuilder();
+        //StringBuilder sb = new StringBuilder();
 
         public MainWindow()
         {
@@ -41,7 +40,7 @@ namespace PPTAutoMakeTest
 
             if (rtn != null && rtn == true)
             {
-                labelPptFIleName.Content = ofd.FileName;
+                labelPptFileName.Content = ofd.FileName;
             }
         }
 
@@ -78,13 +77,86 @@ namespace PPTAutoMakeTest
             labelReplaceStatus.Content = "replace start";
 
             //テンプレートPPTファイル設定確認
-            String pptFilePath = labelPptFIleName.Content.ToString().Replace("-","");
-            if (String.IsNullOrEmpty(pptFilePath))
+            String pptTempFilePath = labelPptFileName.Content.ToString();
+            if (String.IsNullOrEmpty(pptTempFilePath) || pptTempFilePath.Equals("-"))
             {
                 labelReplaceStatus.Content = "テンプレートPowerPointファイルが設定されていません。";
                 return;
             }
 
+            //PPT保存ファイル名を取得
+            String fileName = System.IO.Path.GetFileNameWithoutExtension(pptTempFilePath);
+            fileName = replaceStr(fileName);
+            //同一ファイル名がある場合は別名を作成
+            if (fileName == System.IO.Path.GetFileNameWithoutExtension(pptTempFilePath))
+            {
+                fileName = System.IO.Path.GetFileNameWithoutExtension(pptTempFilePath) + "_Replace";
+            }
+
+            //ファイル保存先のフルパスを作成
+            string pptGenerateFilePath = System.IO.Path.GetDirectoryName(pptTempFilePath) + "\\"
+                + fileName
+                + System.IO.Path.GetExtension(pptTempFilePath);
+
+            //置き換え文字辞書を作成
+            makeReplaceDic(labelTempFIleName.Content.ToString());
+
+            //PPTテンプレート置き換えを実施
+            doReplace(pptTempFilePath, pptGenerateFilePath);
+
+            labelReplaceStatus.Content = "replace complete";
+        }
+
+        /// <summary>
+        /// 置き換え文字辞書を作成
+        /// </summary>
+        private void makeReplaceDic(string replaceDicCsvFilePath)
+        {
+            //CSVファイル読み込み
+            StreamReader sr = new StreamReader(
+                  replaceDicCsvFilePath
+                , Encoding.GetEncoding("Shift_JIS"));
+
+            string tempStr = sr.ReadToEnd();
+
+            sr.Close();
+
+            //----行分解
+
+            //置き換え文字列ペアを読み込み　
+            string[] delimiter = { "\r\n", "\n" }; //改行で分割し置き換え文字列をリストに保管
+            string[] replaceArray = tempStr.Split(delimiter, StringSplitOptions.None);
+
+            //----カラム分解
+
+            //行ごとの情報をKey、Valに分解し格納
+            foreach (string replaceKeyValStr in replaceArray)
+            {
+                //shape.TextFrame.TextRange.Text.Replace();
+                string[] delimiterCol = { @",""" };
+                string[] replaceKeyVal = replaceKeyValStr.ToString().Split(delimiterCol, StringSplitOptions.None);
+
+                if (replaceKeyVal.Length == 2)
+                {
+                    string key = replaceKeyVal[0].Replace(@"""", "");
+                    string val = replaceKeyVal[1].Replace(@"""", "");
+
+                    //辞書に追加
+                    replaceKeyValDic.Add(key,val);
+                }
+            }
+        }
+
+        //変換情報の辞書情報（再帰的に使用されるためGlobalで宣言）
+        Dictionary<String, String> replaceKeyValDic = new Dictionary<string, string>();
+
+        /// <summary>
+        /// 置き換え処理を実施
+        /// </summary>
+        /// <param name="pptFilePath">テンプレートPPTファイルパス</param>
+        /// <param name="pptGenerateFilePath">生成PPT保存ファイルパス</param>
+        private void doReplace(string pptFilePath,string pptGenerateFilePath)
+        {
             List<string> notes = new List<string>();
             Microsoft.Office.Interop.PowerPoint.Application app = null;
             Microsoft.Office.Interop.PowerPoint.Presentation ppt = null;
@@ -105,8 +177,7 @@ namespace PPTAutoMakeTest
                 // スライドのインデックスは１から　順にループする
                 for (int i = 1; i <= ppt.Slides.Count; i++)
                 {
-
-                    sb.AppendLine(" -------------------- Sheet " + ppt.Slides[i].SlideIndex.ToString());
+                    //sb.AppendLine(" -------------------- Sheet " + ppt.Slides[i].SlideIndex.ToString());
 
                     foreach (Microsoft.Office.Interop.PowerPoint.Shape shape in ppt.Slides[i].Shapes)
                     {
@@ -114,37 +185,21 @@ namespace PPTAutoMakeTest
                     }
                 }
 
-                //保存ファイル名を取得
-                String fileName = System.IO.Path.GetFileNameWithoutExtension(labelPptFIleName.Content.ToString());
-                fileName = replaceStr(fileName);
-                //同一ファイル名がある場合は別名を作成
-                if (fileName == System.IO.Path.GetFileNameWithoutExtension(labelPptFIleName.Content.ToString()))
-                {
-                    fileName = System.IO.Path.GetFileNameWithoutExtension(labelPptFIleName.Content.ToString()) + "_Replace";
-                }
-
-                //ファイル保存先のフルパスを作成
-                string saveAsFile = System.IO.Path.GetDirectoryName(labelPptFIleName.Content.ToString()) + "\\"
-                    + fileName
-                    + System.IO.Path.GetExtension(labelPptFIleName.Content.ToString());
-
-                //ファイルの別名保存を実行
-                ppt.SaveAs(saveAsFile,
+                //生成PPTファイルの保存を実行
+                ppt.SaveAs(pptGenerateFilePath,
                     PpSaveAsFileType.ppSaveAsDefault,
                     Microsoft.Office.Core.MsoTriState.msoFalse);
-
-                labelReplaceStatus.Content = "replace complete";
             }
             finally
             {
-                // ファイルを閉じる
+                // PPTファイルを閉じる
                 if (ppt != null)
                 {
                     ppt.Close();
                     ppt = null;
                 }
 
-                // PPTを閉じる
+                // PPTインスタンスを閉じる
                 if (app != null)
                 {
                     app.Quit();
@@ -153,45 +208,27 @@ namespace PPTAutoMakeTest
             }
         }
 
-        private List<String> getReplaceStrList()
-        {
-            //CSVファイル読み込み
-            StreamReader sr = new StreamReader(
-                  labelTempFIleName.Content.ToString()
-                , Encoding.GetEncoding("Shift_JIS"));
-
-            string tempStr = sr.ReadToEnd();
-
-            sr.Close();
-
-            //置き換え文字列ペアを読み込み　
-            string[] delimiter = { "\r\n", "\n" }; //改行で分割し置き換え文字列をリストに保管
-            string[] replaceArray = tempStr.Split(delimiter, StringSplitOptions.None);
-
-            return replaceArray.ToList<String>();
-        }
-
         /// <summary>
-        /// 
+        /// PPTオブジェクト内文字列を置き換え（再帰呼び出し）
         /// </summary>
-        /// <param name="shape"></param>
+        /// <param name="shape">PPTのShape</param>
         private void getShapeText(Microsoft.Office.Interop.PowerPoint.Shape shape)
         {
-            sb.AppendLine(" -------------------- shape : " + shape.Id.ToString());
-            sb.AppendLine(" TYPE : " + shape.Type.ToString());
-            sb.AppendLine(" XY : " + shape.Top + " , " + shape.Left);
-            sb.AppendLine(" WH : " + shape.Width + " , " + shape.Height);
+            //sb.AppendLine(" -------------------- shape : " + shape.Id.ToString());
+            //sb.AppendLine(" TYPE : " + shape.Type.ToString());
+            //sb.AppendLine(" XY : " + shape.Top + " , " + shape.Left);
+            //sb.AppendLine(" WH : " + shape.Width + " , " + shape.Height);
 
             if (shape.HasTextFrame == Microsoft.Office.Core.MsoTriState.msoTrue
                 && shape.TextFrame.HasText == Microsoft.Office.Core.MsoTriState.msoTrue)
             {
                 if (shape.TextFrame.TextRange.Text != "")
                 {
-                    sb.AppendLine(" -------------------- shape : " + shape.Id.ToString());
-                    sb.AppendLine(" TYPE : " + shape.Type.ToString());
-                    sb.AppendLine(" XY : " + shape.Top + " , " + shape.Left);
-                    sb.AppendLine(" WH : " + shape.Width + " , " + shape.Height);
-                    sb.AppendLine(" Text : " + shape.TextFrame.TextRange.Text);
+                    //sb.AppendLine(" -------------------- shape : " + shape.Id.ToString());
+                    //sb.AppendLine(" TYPE : " + shape.Type.ToString());
+                    //sb.AppendLine(" XY : " + shape.Top + " , " + shape.Left);
+                    //sb.AppendLine(" WH : " + shape.Width + " , " + shape.Height);
+                    //sb.AppendLine(" Text : " + shape.TextFrame.TextRange.Text);
 
                     //PPT内の文字列置き換えを実施
                     shape.TextFrame.TextRange.Text = replaceStr(shape.TextFrame.TextRange.Text);
@@ -203,6 +240,7 @@ namespace PPTAutoMakeTest
             {
                 foreach (Microsoft.Office.Interop.PowerPoint.Shape childShape in shape.GroupItems)
                 {
+                    //項目設定文字列を置き換え（再帰呼び出し）
                     getShapeText(childShape);
                 }
             }
@@ -223,7 +261,7 @@ namespace PPTAutoMakeTest
         /// <summary>
         /// テーブル用文字列置き換え
         /// </summary>
-        /// <param name="shape"></param>
+        /// <param name="shape">PPTのShape</param>
         private void getShapeTextForTable(Microsoft.Office.Interop.PowerPoint.Shape shape)
         {
             if (shape.HasTextFrame == Microsoft.Office.Core.MsoTriState.msoTrue
@@ -236,24 +274,17 @@ namespace PPTAutoMakeTest
             }
         }
 
+        /// <summary>
+        /// 文字列置き換え
+        /// </summary>
+        /// <param name="targetStr">置き換え対象文字列</param>
+        /// <returns>置き換え後文字列</returns>
         private String replaceStr(String targetStr)
         {
-            //置き換えリストを取得
-            List<String> replaceList = getReplaceStrList();
-
-            foreach (string replaceKeyValStr in replaceList)
+            foreach (string replaceKeyValKey in replaceKeyValDic.Keys)
             {
-                //shape.TextFrame.TextRange.Text.Replace();
-                string[] delimiter = { @",""" };
-                string[] replaceKeyVal = replaceKeyValStr.ToString().Split(delimiter, StringSplitOptions.None);
-
-                if (replaceKeyVal.Length == 2)
-                {
-                    string key = replaceKeyVal[0].Replace(@"""", "");
-                    string val = replaceKeyVal[1].Replace(@"""", "");
-
-                    targetStr = targetStr.Replace("[" + key + "]", val);
-                }
+                //PPTテンプレートに「[置き換え対象文字列]」の書式で設定したものを変換
+                targetStr = targetStr.Replace("[" + replaceKeyValKey + "]", replaceKeyValDic[replaceKeyValKey]);
             }
 
             return targetStr;
