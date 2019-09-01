@@ -1,0 +1,18 @@
+﻿<Window x:Class="PPTAutoMakeTest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PPTAutoMakeTest"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="150.14" Width="341.179">
+    <Grid Margin="0,0,3.333,1.926">
+        <Button x:Name="button" Content="Replace" HorizontalAlignment="Left" Margin="4,54,0,0" Width="323" Click="button_Click" VerticalAlignment="Top" Height="33"/>
+        <Button x:Name="buttonSetPptFile" Content="PPT File" Margin="0,2,4.334,0" VerticalAlignment="Top" Click="buttonSetPptFile_Click" HorizontalAlignment="Right" Width="75"/>
+        <Label x:Name="labelPptFIleName" Content="-" Margin="4,2,84.334,0" VerticalAlignment="Top" Height="25"/>
+        <Label x:Name="labelReplaceStatus" Content="-" Margin="4,0,4.334,1.741" Height="25" VerticalAlignment="Bottom"/>
+        <Button x:Name="buttonSetTempFile" Content="Temp File" Margin="0,30,4.334,0" VerticalAlignment="Top" Click="buttonSetTempFile_Click" HorizontalAlignment="Right" Width="75"/>
+        <Label x:Name="labelTempFIleName" Content="temp.csv" Margin="4,30,84.334,0" VerticalAlignment="Top" Height="25"/>
+
+    </Grid>
+</Window>
